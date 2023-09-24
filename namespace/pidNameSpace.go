@@ -1,26 +1,36 @@
 package namespace
 
 import (
+	"io"
 	"log"
 	"os"
 	"os/exec"
 	"syscall"
 )
 
-func CreateNewProcess() {
-	cmd := exec.Command("sh")
+func CreateNewProcess(path string, inputCommand ...string) (io.Writer, *exec.Cmd, error) {
+	if len(path) == 0 {
+		path = "sh"
+	}
+	cmd := exec.Command(path, inputCommand...)
+
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		// Run in Linux
-		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWIPC | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS,
+		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWIPC | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS | syscall.CLONE_NEWUSER,
 	}
 
-	cmd.Stdin = os.Stdin
+	stdinPipe, err := cmd.StdinPipe()
+	if err != nil {
+		return nil, nil, err
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
+	if err := cmd.Start(); err != nil {
 		log.Fatal(err)
+		return nil, nil, err
 	}
+	println(cmd.Process.Pid)
+	return stdinPipe, cmd, nil
 }
 
 //type Credential struct {
