@@ -1,0 +1,3 @@
+sudo mount -t overlay -o lowerdir=overlay_lower1,upperdir=overlay_upper,workdir=overlay_workdir, overlay overlay_test
+# merge is the overlay_test folder
+# check use mount | grep overlay
