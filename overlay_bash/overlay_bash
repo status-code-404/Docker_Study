@@ -1,3 +1,6 @@
 sudo mount -t overlay -o lowerdir=overlay_lower1,upperdir=overlay_upper,workdir=overlay_workdir, overlay overlay_test
 # merge is the overlay_test folder
 # check use mount | grep overlay
+
+# run it with root because I add the uid, gid
+# use this run it :  suduo ***(name_of_you_build) run (sh params, can be nothing)

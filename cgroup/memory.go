@@ -6,9 +6,7 @@ import (
 	"path"
 )
 
-const CGROUP_PATH = "/sys/fs/cgroup/memory/cgroup_test_memory_limit"
 const MEMORY_LIMIT_FILE = "memory.limit_in_bytes"
-const TASKS = "tasks"
 
 func SetMemoryLimit(pid int, memoryLimit int) error {
 	file, err := os.OpenFile(path.Join(CGROUP_PATH, MEMORY_LIMIT_FILE), os.O_WRONLY, 0777)

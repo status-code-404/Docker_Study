@@ -1,9 +1,11 @@
 package commandHandler
 
 import (
+	"Docker_Study/namespace"
 	"encoding/json"
 	"fmt"
 	"github.com/urfave/cli/v2"
+	"io"
 	"os"
 	"reflect"
 )
@@ -31,24 +33,30 @@ func GetAllCommands() []*cli.Command {
 
 }
 
+// Todo: These flags need to be put into Commands, First we put them here, but after will finish that
 func GetAllFlags() []cli.Flag {
 	f := make([]cli.Flag, 0)
 	f = append(f, &cli.BoolFlag{
-		Name:    "e",
+		Name:    "echo_process",
 		Aliases: []string{"e"},
-		Usage:   "appreance all process, Just use -e on it",
+		Usage:   "appearance all process, Just use -e on it",
 	}, &cli.BoolFlag{
 		//后台运行功能，后面再写
-		Name:    "d",
+		Name:    "echo_direct_attribute",
 		Aliases: []string{"d"},
 		Usage:   "show it directly or daemon",
 	}, &cli.StringFlag{
-		Name:    "f",
+		Name:    "f_test",
 		Aliases: []string{"f"},
 		Usage:   "appreance all property of process, Just use -f on it",
+	}, &cli.StringFlag{
+		Name:    "ti",
+		Aliases: []string{"t"},
+		Usage:   "use tty to run command",
+		Value:   "default",
 	},
 	)
-	return nil
+	return f
 }
 
 func handlePS(c *cli.Context) error {
@@ -81,6 +89,55 @@ func handlePS(c *cli.Context) error {
 
 func handleRun(c *cli.Context) error {
 	println("handle run")
+	// 创造cmd运行docker
+	// 前两个是什么不用我多说
+	cmd, stdin, err := namespace.CreateNewProcess("sh")
+	if err != nil {
+		println(err.Error())
+		return err
+	}
+	if err = cmd.Start(); err != nil {
+		println(err.Error())
+		return err
+	}
+
+	// 先初始化容器，目前只是简单的mount proc,然后运行我们输入的命令
+	if err = InitDocker(stdin); err != nil {
+		println(err.Error())
+		return err
+	}
+	commandLine := ""
+	for i := 0; i < c.Args().Len(); i++ {
+		commandLine += c.Args().Get(i)
+		commandLine += " "
+	}
+	if len(commandLine) > 0 {
+		commandLine += "\n"
+		stdin.Write([]byte(commandLine))
+	}
+
+	// 之后转到io.stdin上监听我们的输入
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			n, err := os.Stdin.Read(buf)
+			if err != nil {
+				break
+			}
+			stdin.Write(buf[:n])
+		}
+	}()
+
+	defer cmd.Wait()
+	return nil
+}
+
+// 最开始还是直接挂载proc就算初始化成功了
+func InitDocker(stdin io.Writer) error {
+	_, err := stdin.Write([]byte("mount -t proc proc /proc\n"))
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
