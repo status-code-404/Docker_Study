@@ -1,6 +1,7 @@
 package commandHandler
 
 import (
+	"Docker_Study/cgroup"
 	"Docker_Study/namespace"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"syscall"
 )
 
 type CommandError struct {
@@ -54,6 +56,10 @@ func GetAllFlags() []cli.Flag {
 		Aliases: []string{"t"},
 		Usage:   "use tty to run command",
 		Value:   "default",
+	}, &cli.IntFlag{
+		Name:    "memory",
+		Aliases: []string{"m"},
+		Usage:   "the memory limit of this docker",
 	},
 	)
 	return f
@@ -100,7 +106,19 @@ func handleRun(c *cli.Context) error {
 		println(err.Error())
 		return err
 	}
+	//增加内存控制管理,因为目前我只写了内存的，也可以运行其他的(默认400MB)
 
+	memoryLimit := c.Int("m")
+	if memoryLimit <= 0 {
+		memoryLimit = 400
+	}
+	pid := cmd.Process.Pid
+	err = cgroup.SetMemoryLimit(pid, memoryLimit)
+	if err != nil {
+		println(fmt.Sprintf("write %d , %d limit to memory limit error", pid, memoryLimit))
+		println(err.Error())
+		//return err
+	}
 	// 先初始化容器，目前只是简单的mount proc,然后运行我们输入的命令
 	if err = InitDocker(stdin); err != nil {
 		println(err.Error())
@@ -128,13 +146,40 @@ func handleRun(c *cli.Context) error {
 		}
 	}()
 
-	defer cmd.Wait()
+	defer func() {
+		_ = cmd.Wait()
+		if err := os.RemoveAll("pivot_dir"); err != nil {
+			println(err)
+		}
+	}()
 	return nil
 }
 
-// 最开始还是直接挂载proc就算初始化成功了
+// pivot_root + proc挂载
 func InitDocker(stdin io.Writer) error {
-	_, err := stdin.Write([]byte("mount -t proc proc /proc\n"))
+
+	root_dir, err := os.Getwd()
+	if err != nil {
+		println(err)
+		return err
+	}
+
+	if err = os.Mkdir("pivot_dir", 0777); err != nil {
+		println("mkdir pivot_dir error occurs")
+		println(err.Error())
+	}
+
+	if err = syscall.PivotRoot("pivot_dir", root_dir); err != nil {
+		println("do pivot root occurs error")
+		println(err.Error())
+	}
+
+	if err = syscall.Chdir("pivot_dir"); err != nil {
+		println("change dir error")
+		println(err.Error())
+	}
+
+	_, err = stdin.Write([]byte("mount -t proc proc /proc\n"))
 	if err != nil {
 		return err
 	}
