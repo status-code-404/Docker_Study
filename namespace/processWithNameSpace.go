@@ -11,7 +11,6 @@ func CreateNewProcess(path string, inputCommand ...string) (*exec.Cmd, io.Writer
 	if len(path) == 0 {
 		path = "sh"
 	}
-
 	realCommand := make([]string, 0)
 
 	if len(inputCommand) > 0 {
