@@ -9,7 +9,7 @@ import (
 	"io"
 	"os"
 	"reflect"
-	"syscall"
+	"time"
 )
 
 type CommandError struct {
@@ -157,32 +157,34 @@ func handleRun(c *cli.Context) error {
 
 // pivot_root + proc挂载
 func InitDocker(stdin io.Writer) error {
+	//root, err := os.Getwd()
+	//if err != nil {
+	//	println("get wd error occurs")
+	//	println(err.Error())
+	//	return err
+	//}
 
-	root_dir, err := os.Getwd()
-	if err != nil {
-		println(err)
-		return err
-	}
+	stdin.Write([]byte("mount -t proc proc /proc\n"))
+	println("Done mount proc")
+	time.Sleep(time.Duration(5))
 
-	if err = os.Mkdir("pivot_dir", 0777); err != nil {
-		println("mkdir pivot_dir error occurs")
+	if err := os.Mkdir("new_root", 0777); err != nil {
+		println("mkdir new_root error occurs")
 		println(err.Error())
 	}
 
-	if err = syscall.PivotRoot("pivot_dir", root_dir); err != nil {
-		println("do pivot root occurs error")
-		println(err.Error())
-	}
+	stdin.Write([]byte("mount -n -t tmpfs -o size=500M none new_root\n"))
+	time.Sleep(time.Duration(5))
 
-	if err = syscall.Chdir("pivot_dir"); err != nil {
-		println("change dir error")
-		println(err.Error())
-	}
+	stdin.Write([]byte("cd new_root\n"))
+	time.Sleep(time.Duration(5))
 
-	_, err = stdin.Write([]byte("mount -t proc proc /proc\n"))
-	if err != nil {
-		return err
-	}
+	stdin.Write([]byte("mkdir old_root\n"))
+	time.Sleep(time.Duration(5))
+
+	stdin.Write([]byte("pivot_root . old_root\n"))
+	time.Sleep(time.Duration(5))
+
 	return nil
 }
 
